@@ -2,102 +2,263 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Vigil PIDS — Weather Calibration Dashboard</title>
 <style>
-  body { font-family: Arial, sans-serif; background:#0f172a; color:#e2e8f0; margin:0; padding:30px; }
-  h1 { color:#38bdf8; }
-  .card { background:#1e293b; border-radius:10px; padding:20px; margin-bottom:20px; box-shadow:0 2px 8px rgba(0,0,0,0.3); }
-  .row { display:flex; gap:20px; flex-wrap:wrap; }
-  .stat { flex:1; min-width:140px; background:#0f172a; border-radius:8px; padding:15px; text-align:center; }
-  .stat h3 { margin:0; font-size:13px; color:#94a3b8; }
-  .stat p { margin:5px 0 0; font-size:22px; font-weight:bold; }
-  .sensitivity { font-size:32px; font-weight:bold; padding:15px; border-radius:8px; text-align:center; }
-  .High { background:#166534; color:#bbf7d0; }
-  .Medium { background:#854d0e; color:#fef08a; }
-  .Low { background:#7f1d1d; color:#fecaca; }
-  button { background:#38bdf8; border:none; padding:10px 20px; border-radius:6px; font-weight:bold; cursor:pointer; }
-  input { padding:8px; border-radius:6px; border:1px solid #334155; background:#0f172a; color:#e2e8f0; margin-right:8px;}
-  table { width:100%; border-collapse:collapse; margin-top:10px; }
-  th, td { padding:8px; text-align:left; border-bottom:1px solid #334155; font-size:13px; }
-  .reason { color:#94a3b8; font-size:14px; margin-top:10px; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    margin: 0;
+    padding: 20px;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+  h1 {
+    color: #38bdf8;
+    font-size: clamp(20px, 4vw, 30px);
+    margin-bottom: 5px;
+  }
+  .subtitle { color: #94a3b8; font-size: 14px; margin-bottom: 20px; }
+
+  .card {
+    background: #1e293b;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.35);
+  }
+
+  .select-row {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+  }
+  .field { flex: 1; min-width: 200px; }
+  label {
+    display: block;
+    font-size: 13px;
+    color: #94a3b8;
+    margin-bottom: 6px;
+  }
+  select, input {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #334155;
+    background: #0f172a;
+    color: #e2e8f0;
+    font-size: 14px;
+  }
+  button {
+    background: #38bdf8;
+    color: #0f172a;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 14px;
+    white-space: nowrap;
+    transition: background 0.2s;
+  }
+  button:hover { background: #7dd3fc; }
+  button:disabled { background: #475569; cursor: not-allowed; }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 15px;
+  }
+  .stat {
+    background: #0f172a;
+    border-radius: 10px;
+    padding: 15px;
+    text-align: center;
+  }
+  .stat h3 {
+    margin: 0;
+    font-size: 12px;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .stat p { margin: 8px 0 0; font-size: clamp(18px, 3vw, 24px); font-weight: bold; }
+
+  .sensitivity {
+    font-size: clamp(22px, 5vw, 32px);
+    font-weight: bold;
+    padding: 18px;
+    border-radius: 10px;
+    text-align: center;
+    transition: background 0.3s;
+  }
+  .High { background: #166534; color: #bbf7d0; }
+  .Medium { background: #854d0e; color: #fef08a; }
+  .Low { background: #7f1d1d; color: #fecaca; }
+
+  .reason { color: #94a3b8; font-size: 14px; margin-top: 12px; }
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; min-width: 500px; }
+  th, td { padding: 10px 8px; text-align: left; border-bottom: 1px solid #334155; font-size: 13px; }
+  th { color: #94a3b8; font-weight: 600; }
+
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+  }
+  .badge.High { background: #166534; color: #bbf7d0; padding: 3px 10px; }
+  .badge.Medium { background: #854d0e; color: #fef08a; padding: 3px 10px; }
+  .badge.Low { background: #7f1d1d; color: #fecaca; padding: 3px 10px; }
+
+  .loading { opacity: 0.5; pointer-events: none; }
+
+  @media (max-width: 600px) {
+    .select-row { flex-direction: column; align-items: stretch; }
+    button { width: 100%; }
+  }
 </style>
 </head>
 <body>
 
-<h1>🛰️ Vigil PIDS — Weather-Based Sensor Calibration</h1>
+<div class="container">
+  <h1>🛰️ Vigil PIDS — Weather-Based Sensor Calibration</h1>
+  <p class="subtitle">Select a monitoring site to fetch live weather and get sensor sensitivity recommendation</p>
 
-<div class="card">
-  <label>Latitude: <input id="lat" value="19.076"></label>
-  <label>Longitude: <input id="lon" value="72.877"></label>
-  <button onclick="getRecommendation()">Fetch Live Recommendation</button>
-</div>
-
-<div class="card">
-  <div class="row">
-    <div class="stat"><h3>Wind Speed</h3><p id="wind">--</p></div>
-    <div class="stat"><h3>Rainfall</h3><p id="rain">--</p></div>
-    <div class="stat"><h3>Temperature</h3><p id="temp">--</p></div>
-    <div class="stat"><h3>Humidity</h3><p id="humidity">--</p></div>
+  <div class="card">
+    <div class="select-row">
+      <div class="field">
+        <label for="siteSelect">Monitoring Site</label>
+        <select id="siteSelect" onchange="handleSiteChange()">
+          <option value="19.076,72.877">Mumbai, Maharashtra</option>
+          <option value="13.0827,80.2707">Chennai, Tamil Nadu</option>
+          <option value="22.5726,88.3639">Kolkata, West Bengal</option>
+          <option value="28.6139,77.2090">Delhi NCR</option>
+          <option value="12.9716,77.5946">Bengaluru, Karnataka</option>
+          <option value="23.0225,72.5714">Ahmedabad, Gujarat</option>
+          <option value="custom">Custom Location...</option>
+        </select>
+      </div>
+      <div class="field" id="customFields" style="display:none;">
+        <label for="lat">Latitude, Longitude</label>
+        <input id="customCoords" placeholder="e.g. 19.076, 72.877">
+      </div>
+      <button id="fetchBtn" onclick="getRecommendation()">Fetch Live Recommendation</button>
+    </div>
   </div>
-</div>
 
-<div class="card">
-  <h3>Recommended Sensor Sensitivity</h3>
-  <div id="sensitivityBox" class="sensitivity High">--</div>
-  <p class="reason" id="reason"></p>
-</div>
+  <div class="card">
+    <div class="stats-grid">
+      <div class="stat"><h3>Wind Speed</h3><p id="wind">--</p></div>
+      <div class="stat"><h3>Rainfall</h3><p id="rain">--</p></div>
+      <div class="stat"><h3>Temperature</h3><p id="temp">--</p></div>
+      <div class="stat"><h3>Humidity</h3><p id="humidity">--</p></div>
+    </div>
+  </div>
 
-<div class="card">
-  <h3>Recent Calibration History</h3>
-  <table>
-    <thead><tr><th>Time</th><th>Wind</th><th>Rain</th><th>Sensitivity</th><th>Confidence</th></tr></thead>
-    <tbody id="historyTable"></tbody>
-  </table>
+  <div class="card">
+    <h3 style="margin-top:0;">Recommended Sensor Sensitivity</h3>
+    <div id="sensitivityBox" class="sensitivity High">--</div>
+    <p class="reason" id="reason"></p>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0;">Recent Calibration History</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Time</th><th>Wind</th><th>Rain</th><th>Sensitivity</th><th>Confidence</th></tr>
+        </thead>
+        <tbody id="historyTable"></tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
 <script>
 const API_BASE = "http://127.0.0.1:8000";
 
+function handleSiteChange() {
+  const val = document.getElementById("siteSelect").value;
+  document.getElementById("customFields").style.display =
+    val === "custom" ? "block" : "none";
+}
+
+function getSelectedCoords() {
+  const select = document.getElementById("siteSelect");
+  if (select.value === "custom") {
+    const raw = document.getElementById("customCoords").value;
+    const [lat, lon] = raw.split(",").map(s => parseFloat(s.trim()));
+    if (isNaN(lat) || isNaN(lon)) {
+      alert("Enter valid coordinates like: 19.076, 72.877");
+      return null;
+    }
+    return { lat, lon };
+  }
+  const [lat, lon] = select.value.split(",").map(Number);
+  return { lat, lon };
+}
+
 async function getRecommendation() {
-  const lat = document.getElementById("lat").value;
-  const lon = document.getElementById("lon").value;
+  const coords = getSelectedCoords();
+  if (!coords) return;
 
-  const res = await fetch(`${API_BASE}/recommend?lat=${lat}&lon=${lon}`);
-  const data = await res.json();
+  const btn = document.getElementById("fetchBtn");
+  btn.disabled = true;
+  btn.innerText = "Fetching...";
 
-  document.getElementById("wind").innerText = data.weather.wind_speed + " km/h";
-  document.getElementById("rain").innerText = data.weather.rainfall + " mm";
-  document.getElementById("temp").innerText = data.weather.temperature + " °C";
-  document.getElementById("humidity").innerText = data.weather.humidity + " %";
+  try {
+    const res = await fetch(`${API_BASE}/recommend?lat=${coords.lat}&lon=${coords.lon}`);
+    const data = await res.json();
 
-  const box = document.getElementById("sensitivityBox");
-  box.innerText = data.recommendation.sensitivity + " Sensitivity";
-  box.className = "sensitivity " + data.recommendation.sensitivity;
+    document.getElementById("wind").innerText = data.weather.wind_speed + " km/h";
+    document.getElementById("rain").innerText = data.weather.rainfall + " mm";
+    document.getElementById("temp").innerText = data.weather.temperature + " °C";
+    document.getElementById("humidity").innerText = data.weather.humidity + " %";
 
-  document.getElementById("reason").innerText =
-    "Reason: " + data.recommendation.reason +
-    " | Confidence: " + (data.recommendation.confidence * 100).toFixed(0) + "%";
+    const box = document.getElementById("sensitivityBox");
+    box.innerText = data.recommendation.sensitivity + " Sensitivity";
+    box.className = "sensitivity " + data.recommendation.sensitivity;
 
-  loadHistory();
+    document.getElementById("reason").innerText =
+      "Reason: " + data.recommendation.reason +
+      " | Confidence: " + (data.recommendation.confidence * 100).toFixed(0) + "%";
+
+    loadHistory();
+  } catch (err) {
+    alert("Could not reach backend. Make sure the server is running (uvicorn app:app --reload).");
+  } finally {
+    btn.disabled = false;
+    btn.innerText = "Fetch Live Recommendation";
+  }
 }
 
 async function loadHistory() {
-  const res = await fetch(`${API_BASE}/history?limit=10`);
-  const rows = await res.json();
-  const tbody = document.getElementById("historyTable");
-  tbody.innerHTML = "";
-  rows.forEach(r => {
-    tbody.innerHTML += `<tr>
-      <td>${new Date(r.timestamp).toLocaleTimeString()}</td>
-      <td>${r.wind_speed} km/h</td>
-      <td>${r.rainfall} mm</td>
-      <td>${r.sensitivity}</td>
-      <td>${(r.confidence*100).toFixed(0)}%</td>
-    </tr>`;
-  });
+  try {
+    const res = await fetch(`${API_BASE}/history?limit=10`);
+    const rows = await res.json();
+    const tbody = document.getElementById("historyTable");
+    tbody.innerHTML = "";
+    rows.forEach(r => {
+      tbody.innerHTML += `<tr>
+        <td>${new Date(r.timestamp).toLocaleTimeString()}</td>
+        <td>${r.wind_speed} km/h</td>
+        <td>${r.rainfall} mm</td>
+        <td><span class="badge ${r.sensitivity}">${r.sensitivity}</span></td>
+        <td>${(r.confidence*100).toFixed(0)}%</td>
+      </tr>`;
+    });
+  } catch (err) {
+    console.error("History fetch failed", err);
+  }
 }
 
-// auto-load on page open
+// auto-load Mumbai on page open
 getRecommendation();
 </script>
 
