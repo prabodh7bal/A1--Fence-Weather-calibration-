@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Vigil PIDS — Weather Calibration Dashboard</title>
+<style>
+  body { font-family: Arial, sans-serif; background:#0f172a; color:#e2e8f0; margin:0; padding:30px; }
+  h1 { color:#38bdf8; }
+  .card { background:#1e293b; border-radius:10px; padding:20px; margin-bottom:20px; box-shadow:0 2px 8px rgba(0,0,0,0.3); }
+  .row { display:flex; gap:20px; flex-wrap:wrap; }
+  .stat { flex:1; min-width:140px; background:#0f172a; border-radius:8px; padding:15px; text-align:center; }
+  .stat h3 { margin:0; font-size:13px; color:#94a3b8; }
+  .stat p { margin:5px 0 0; font-size:22px; font-weight:bold; }
+  .sensitivity { font-size:32px; font-weight:bold; padding:15px; border-radius:8px; text-align:center; }
+  .High { background:#166534; color:#bbf7d0; }
+  .Medium { background:#854d0e; color:#fef08a; }
+  .Low { background:#7f1d1d; color:#fecaca; }
+  button { background:#38bdf8; border:none; padding:10px 20px; border-radius:6px; font-weight:bold; cursor:pointer; }
+  input { padding:8px; border-radius:6px; border:1px solid #334155; background:#0f172a; color:#e2e8f0; margin-right:8px;}
+  table { width:100%; border-collapse:collapse; margin-top:10px; }
+  th, td { padding:8px; text-align:left; border-bottom:1px solid #334155; font-size:13px; }
+  .reason { color:#94a3b8; font-size:14px; margin-top:10px; }
+</style>
+</head>
+<body>
+
+<h1>🛰️ Vigil PIDS — Weather-Based Sensor Calibration</h1>
+
+<div class="card">
+  <label>Latitude: <input id="lat" value="19.076"></label>
+  <label>Longitude: <input id="lon" value="72.877"></label>
+  <button onclick="getRecommendation()">Fetch Live Recommendation</button>
+</div>
+
+<div class="card">
+  <div class="row">
+    <div class="stat"><h3>Wind Speed</h3><p id="wind">--</p></div>
+    <div class="stat"><h3>Rainfall</h3><p id="rain">--</p></div>
+    <div class="stat"><h3>Temperature</h3><p id="temp">--</p></div>
+    <div class="stat"><h3>Humidity</h3><p id="humidity">--</p></div>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Recommended Sensor Sensitivity</h3>
+  <div id="sensitivityBox" class="sensitivity High">--</div>
+  <p class="reason" id="reason"></p>
+</div>
+
+<div class="card">
+  <h3>Recent Calibration History</h3>
+  <table>
+    <thead><tr><th>Time</th><th>Wind</th><th>Rain</th><th>Sensitivity</th><th>Confidence</th></tr></thead>
+    <tbody id="historyTable"></tbody>
+  </table>
+</div>
+
+<script>
+const API_BASE = "http://127.0.0.1:8000";
+
+async function getRecommendation() {
+  const lat = document.getElementById("lat").value;
+  const lon = document.getElementById("lon").value;
+
+  const res = await fetch(`${API_BASE}/recommend?lat=${lat}&lon=${lon}`);
+  const data = await res.json();
+
+  document.getElementById("wind").innerText = data.weather.wind_speed + " km/h";
+  document.getElementById("rain").innerText = data.weather.rainfall + " mm";
+  document.getElementById("temp").innerText = data.weather.temperature + " °C";
+  document.getElementById("humidity").innerText = data.weather.humidity + " %";
+
+  const box = document.getElementById("sensitivityBox");
+  box.innerText = data.recommendation.sensitivity + " Sensitivity";
+  box.className = "sensitivity " + data.recommendation.sensitivity;
+
+  document.getElementById("reason").innerText =
+    "Reason: " + data.recommendation.reason +
+    " | Confidence: " + (data.recommendation.confidence * 100).toFixed(0) + "%";
+
+  loadHistory();
+}
+
+async function loadHistory() {
+  const res = await fetch(`${API_BASE}/history?limit=10`);
+  const rows = await res.json();
+  const tbody = document.getElementById("historyTable");
+  tbody.innerHTML = "";
+  rows.forEach(r => {
+    tbody.innerHTML += `<tr>
+      <td>${new Date(r.timestamp).toLocaleTimeString()}</td>
+      <td>${r.wind_speed} km/h</td>
+      <td>${r.rainfall} mm</td>
+      <td>${r.sensitivity}</td>
+      <td>${(r.confidence*100).toFixed(0)}%</td>
+    </tr>`;
+  });
+}
+
+// auto-load on page open
+getRecommendation();
+</script>
+
+</body>
+</html>
