@@ -242,7 +242,7 @@ browser — it will call the local backend by default.
 
 \- Prabodh Bal — KIIT University
 
-\- \_(teammate name)\_ — KIIT University
+\- Pracheeta Parida — KIIT University
 
 
 
