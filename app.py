@@ -1,10 +1,13 @@
 """
 PIDS Weather-Based Sensor Calibration Suggestion System
 Backend: FastAPI + Open-Meteo (free, no API key needed)
+Recommendation engine: trained Random Forest classifier (see train_model.py)
 """
 
 import sqlite3
 import requests
+import joblib
+import pandas as pd
 from datetime import datetime
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,6 +23,13 @@ app.add_middleware(
 )
 
 DB_PATH = "calibration_log.db"
+
+# Load the trained Random Forest model (run train_model.py first to generate this)
+try:
+    ML_MODEL = joblib.load("model.joblib")
+except FileNotFoundError:
+    ML_MODEL = None
+    print("WARNING: model.joblib not found. Run `python train_model.py` first.")
 
 
 def init_db():
@@ -71,54 +81,60 @@ def fetch_weather(lat: float, lon: float):
     }
 
 
-def recommend_sensitivity(weather: dict):
+def explain_conditions(weather: dict):
     """
-    Rule + weighted-scoring engine.
-    Higher risk_score = more false-alarm risk => recommend LOWER sensitivity.
+    Human-readable explanation of which conditions are notable.
+    Used only for the dashboard's 'Reason' text -- the actual sensitivity
+    decision comes from the trained ML model below, not from this list.
     """
-    wind = weather["wind_speed"]        # km/h
-    rain = weather["rainfall"]          # mm
-    humidity = weather["humidity"]      # %
+    wind = weather["wind_speed"]
+    rain = weather["rainfall"]
+    humidity = weather["humidity"]
     storm = weather["storm_flag"]
 
-    risk_score = 0.0
-    reasons = []
-
-    if wind > 40:
-        risk_score += 3
-        reasons.append(f"High wind ({wind} km/h)")
-    elif wind > 20:
-        risk_score += 1.5
-        reasons.append(f"Moderate wind ({wind} km/h)")
-
-    if rain > 10:
-        risk_score += 2.5
-        reasons.append(f"Heavy rainfall ({rain} mm)")
-    elif rain > 2:
-        risk_score += 1
-        reasons.append(f"Light rainfall ({rain} mm)")
-
-    if humidity > 85:
-        risk_score += 1
-        reasons.append(f"High humidity ({humidity}%)")
-
+    notes = []
     if storm:
-        risk_score += 4
-        reasons.append("Storm/thunderstorm detected")
+        notes.append("Storm/thunderstorm detected")
+    if wind > 40:
+        notes.append(f"High wind ({wind} km/h)")
+    elif wind > 20:
+        notes.append(f"Moderate wind ({wind} km/h)")
+    if rain > 10:
+        notes.append(f"Heavy rainfall ({rain} mm)")
+    elif rain > 2:
+        notes.append(f"Light rainfall ({rain} mm)")
+    if humidity > 85:
+        notes.append(f"High humidity ({humidity}%)")
 
-    # Decide sensitivity band
-    if risk_score >= 5:
-        sensitivity = "Low"
-    elif risk_score >= 2:
-        sensitivity = "Medium"
-    else:
-        sensitivity = "High"
-        reasons.append("Normal weather conditions")
+    if not notes:
+        notes.append("Normal weather conditions")
 
-    # Confidence: how far the score is from the nearest threshold (0-1 scale)
-    confidence = min(1.0, round(risk_score / 8, 2)) if risk_score > 0 else 0.95
+    return "; ".join(notes)
 
-    reason_text = "; ".join(reasons)
+
+def recommend_sensitivity(weather: dict):
+    """
+    ML-based recommendation: feeds live weather features into the trained
+    Random Forest classifier (train_model.py) and returns its predicted
+    class + probability as the confidence score.
+    """
+    if ML_MODEL is None:
+        raise RuntimeError("Model not loaded. Run `python train_model.py` first.")
+
+    features = pd.DataFrame([{
+        "wind_speed": weather["wind_speed"],
+        "rainfall": weather["rainfall"],
+        "humidity": weather["humidity"],
+        "temperature": weather["temperature"],
+        "storm_flag": weather["storm_flag"],
+    }])
+
+    sensitivity = ML_MODEL.predict(features)[0]
+    proba = ML_MODEL.predict_proba(features)[0]
+    class_index = list(ML_MODEL.classes_).index(sensitivity)
+    confidence = round(float(proba[class_index]), 2)
+
+    reason_text = explain_conditions(weather)
     return sensitivity, confidence, reason_text
 
 
@@ -179,3 +195,29 @@ def history(limit: int = 20):
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+@app.get("/model-info")
+def model_info():
+    """
+    Expose real feature importances from the trained Random Forest,
+    so the dashboard can show WHY the model weighs each factor the way
+    it does -- genuine model transparency, not a hardcoded explanation.
+    """
+    if ML_MODEL is None:
+        return {"error": "Model not loaded"}
+
+    feature_names = ["wind_speed", "rainfall", "humidity", "temperature", "storm_flag"]
+    importances = ML_MODEL.feature_importances_.tolist()
+
+    return {
+        "model_type": "RandomForestClassifier",
+        "n_estimators": ML_MODEL.n_estimators,
+        "classes": list(ML_MODEL.classes_),
+        "feature_importance": [
+            {"feature": name, "importance": round(imp, 4)}
+            for name, imp in sorted(
+                zip(feature_names, importances), key=lambda x: -x[1]
+            )
+        ],
+    }

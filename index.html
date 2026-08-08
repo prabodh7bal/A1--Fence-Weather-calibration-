@@ -3,135 +3,213 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Vigil PIDS — Weather Calibration Dashboard</title>
+<title>VIGIL — Perimeter Weather Calibration Console</title>
 <style>
+  :root {
+    --bg: #080b14;
+    --panel: #101828;
+    --panel-2: #0c1220;
+    --border: #1e2a44;
+    --text: #e7edf7;
+    --muted: #7c8aad;
+    --cyan: #22d3ee;
+    --cyan-dim: rgba(34, 211, 238, 0.15);
+    --high: #22c55e;
+    --high-dim: rgba(34, 197, 94, 0.14);
+    --medium: #f5a524;
+    --medium-dim: rgba(245, 165, 36, 0.14);
+    --low: #ef4444;
+    --low-dim: rgba(239, 68, 68, 0.14);
+  }
   * { box-sizing: border-box; }
   body {
-    font-family: 'Segoe UI', Arial, sans-serif;
-    background: #0f172a;
-    color: #e2e8f0;
     margin: 0;
-    padding: 20px;
+    background: radial-gradient(ellipse at top, #0d1424 0%, var(--bg) 55%);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    padding: 24px 20px 60px;
   }
-  .container { max-width: 1100px; margin: 0 auto; }
+  .mono {
+    font-family: 'Consolas', 'SFMono-Regular', 'Roboto Mono', ui-monospace, monospace;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+
+  header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 22px;
+  }
+  .brand-eyebrow {
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--cyan);
+    text-transform: uppercase;
+    font-weight: 700;
+    margin: 0 0 4px;
+  }
   h1 {
-    color: #38bdf8;
-    font-size: clamp(20px, 4vw, 30px);
-    margin-bottom: 5px;
+    margin: 0;
+    font-size: clamp(22px, 4vw, 30px);
+    font-weight: 800;
+    letter-spacing: -0.02em;
   }
-  .subtitle { color: #94a3b8; font-size: 14px; margin-bottom: 20px; }
+  .subtitle { color: var(--muted); font-size: 13.5px; margin-top: 6px; max-width: 520px; }
+  .status-pill {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--panel); border: 1px solid var(--border);
+    padding: 8px 14px; border-radius: 999px; font-size: 12px;
+    color: var(--muted); white-space: nowrap;
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--high); box-shadow: 0 0 8px var(--high); }
+  .dot.offline { background: #475569; box-shadow: none; }
+  @keyframes pulse-dot { 0%,100%{opacity:1;} 50%{opacity:0.35;} }
+  .dot.live { animation: pulse-dot 1.6s ease-in-out infinite; }
+
+  .fence-card {
+    background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 26px 24px 18px;
+    margin-bottom: 20px;
+    overflow: hidden;
+    position: relative;
+  }
+  .fence-label {
+    font-size: 10.5px; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 14px; font-weight: 700;
+  }
+  .fence-svg-wrap { width: 100%; }
+  .sensor-node circle.core { transition: fill 0.4s ease, stroke 0.4s ease; }
+  .sensor-node circle.ring { transition: stroke 0.4s ease; opacity: 0.55; }
+  .sensor-node.active circle.ring { animation: radar-sweep 2.2s ease-out infinite; }
+  @keyframes radar-sweep {
+    0% { r: 9; opacity: 0.65; }
+    100% { r: 26; opacity: 0; }
+  }
+  .fence-line { stroke: #24304a; stroke-width: 2; }
 
   .card {
-    background: #1e293b;
-    border-radius: 12px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
     padding: 20px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.35);
+    margin-bottom: 18px;
   }
-
-  .select-row {
-    display: flex;
-    gap: 15px;
-    flex-wrap: wrap;
-    align-items: flex-end;
-  }
-  .field { flex: 1; min-width: 200px; }
+  .control-row { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
+  .field { flex: 1; min-width: 210px; }
   label {
-    display: block;
-    font-size: 13px;
-    color: #94a3b8;
-    margin-bottom: 6px;
+    display: block; font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 7px; font-weight: 700;
   }
   select, input {
-    width: 100%;
-    padding: 10px;
-    border-radius: 8px;
-    border: 1px solid #334155;
-    background: #0f172a;
-    color: #e2e8f0;
-    font-size: 14px;
+    width: 100%; padding: 11px 12px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--panel-2);
+    color: var(--text); font-size: 14px; font-family: inherit;
   }
+  select:focus, input:focus { outline: 2px solid var(--cyan); outline-offset: 1px; }
   button {
-    background: #38bdf8;
-    color: #0f172a;
-    border: none;
-    padding: 12px 24px;
-    border-radius: 8px;
-    font-weight: bold;
-    cursor: pointer;
-    font-size: 14px;
-    white-space: nowrap;
-    transition: background 0.2s;
+    background: var(--cyan); color: #04222b; border: none;
+    padding: 12px 22px; border-radius: 8px; font-weight: 800;
+    font-size: 13.5px; letter-spacing: 0.3px; cursor: pointer;
+    white-space: nowrap; transition: filter 0.15s ease;
   }
-  button:hover { background: #7dd3fc; }
-  button:disabled { background: #475569; cursor: not-allowed; }
+  button:hover { filter: brightness(1.12); }
+  button:disabled { background: #364155; color: #8998b8; cursor: not-allowed; }
+
+  .live-toggle {
+    display: flex; align-items: center; gap: 9px; cursor: pointer;
+    background: var(--panel-2); border: 1px solid var(--border);
+    padding: 11px 14px; border-radius: 8px; font-size: 12.5px; color: var(--muted);
+    user-select: none;
+  }
+  .live-toggle input { width: auto; margin: 0; accent-color: var(--cyan); }
 
   .stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-    gap: 15px;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 12px;
   }
   .stat {
-    background: #0f172a;
-    border-radius: 10px;
-    padding: 15px;
-    text-align: center;
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px; text-align: center;
   }
-  .stat h3 {
-    margin: 0;
-    font-size: 12px;
-    color: #94a3b8;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-  .stat p { margin: 8px 0 0; font-size: clamp(18px, 3vw, 24px); font-weight: bold; }
+  .stat .k { font-size: 10.5px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+  .stat .v { font-size: clamp(18px, 3vw, 23px); font-weight: 800; margin-top: 6px; }
 
-  .sensitivity {
-    font-size: clamp(22px, 5vw, 32px);
-    font-weight: bold;
-    padding: 18px;
-    border-radius: 10px;
-    text-align: center;
-    transition: background 0.3s;
+  .sens-layout { display: grid; grid-template-columns: 1fr auto; gap: 22px; align-items: center; }
+  @media (max-width: 560px) { .sens-layout { grid-template-columns: 1fr; } }
+  .sens-headline { display: flex; align-items: center; gap: 12px; }
+  .sens-tag {
+    font-size: 10.5px; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--muted); font-weight: 700; margin-bottom: 8px;
   }
-  .High { background: #166534; color: #bbf7d0; }
-  .Medium { background: #854d0e; color: #fef08a; }
-  .Low { background: #7f1d1d; color: #fecaca; }
+  .sens-value { font-size: clamp(26px, 5vw, 38px); font-weight: 900; letter-spacing: -0.01em; }
+  .sens-value.High { color: var(--high); } .sens-value.Medium { color: var(--medium); } .sens-value.Low { color: var(--low); }
+  .reason { color: var(--muted); font-size: 13px; margin-top: 10px; line-height: 1.5; }
+  .gauge-wrap { display:flex; flex-direction:column; align-items:center; gap: 4px; }
+  .gauge-num { font-size: 20px; font-weight: 800; margin-top: -58px; }
+  .gauge-cap { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
 
-  .reason { color: #94a3b8; font-size: 14px; margin-top: 12px; }
+  .imp-row { display: grid; grid-template-columns: 110px 1fr 42px; align-items: center; gap: 10px; margin-bottom: 11px; font-size: 12.5px; }
+  .imp-row:last-child { margin-bottom: 0; }
+  .imp-name { color: var(--muted); text-transform: capitalize; }
+  .imp-track { height: 8px; background: var(--panel-2); border-radius: 6px; overflow: hidden; border: 1px solid var(--border); }
+  .imp-fill { height: 100%; background: linear-gradient(90deg, var(--cyan), #0891b2); border-radius: 6px; transition: width 0.5s ease; }
+  .imp-val { text-align: right; color: var(--text); font-weight: 700; }
+  .card-title {
+    font-size: 12px; letter-spacing: 1.3px; text-transform: uppercase;
+    color: var(--muted); font-weight: 800; margin: 0 0 16px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .model-badge {
+    font-size: 10px; background: var(--cyan-dim); color: var(--cyan);
+    padding: 3px 9px; border-radius: 5px; letter-spacing: 0.5px; font-weight: 700;
+  }
 
   .table-wrap { overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; margin-top: 10px; min-width: 500px; }
-  th, td { padding: 10px 8px; text-align: left; border-bottom: 1px solid #334155; font-size: 13px; }
-  th { color: #94a3b8; font-weight: 600; }
-
-  .badge {
-    display: inline-block;
-    padding: 3px 10px;
-    border-radius: 12px;
-    font-size: 12px;
-    font-weight: bold;
-  }
-  .badge.High { background: #166534; color: #bbf7d0; padding: 3px 10px; }
-  .badge.Medium { background: #854d0e; color: #fef08a; padding: 3px 10px; }
-  .badge.Low { background: #7f1d1d; color: #fecaca; padding: 3px 10px; }
-
-  .loading { opacity: 0.5; pointer-events: none; }
+  table { width: 100%; border-collapse: collapse; min-width: 520px; }
+  th, td { padding: 10px 8px; text-align: left; border-bottom: 1px solid var(--border); font-size: 12.5px; }
+  th { color: var(--muted); font-weight: 700; text-transform: uppercase; font-size: 10.5px; letter-spacing: 1px; }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 800; }
+  .badge.High { background: var(--high-dim); color: var(--high); }
+  .badge.Medium { background: var(--medium-dim); color: var(--medium); }
+  .badge.Low { background: var(--low-dim); color: var(--low); }
 
   @media (max-width: 600px) {
-    .select-row { flex-direction: column; align-items: stretch; }
+    .control-row { flex-direction: column; align-items: stretch; }
     button { width: 100%; }
   }
 </style>
 </head>
 <body>
 
-<div class="container">
-  <h1>🛰️ Vigil PIDS — Weather-Based Sensor Calibration</h1>
-  <p class="subtitle">Select a monitoring site to fetch live weather and get sensor sensitivity recommendation</p>
+<div class="wrap">
+
+  <header>
+    <div>
+      <p class="brand-eyebrow">A-1 FENCE · VIGIL PIDS</p>
+      <h1>Perimeter Weather Calibration Console</h1>
+      <p class="subtitle">Live weather-driven sensitivity tuning for perimeter intrusion detection sensors — powered by a trained ML model.</p>
+    </div>
+    <div class="status-pill">
+      <span class="dot live" id="statusDot"></span>
+      <span id="statusText">SYSTEM ONLINE</span>
+    </div>
+  </header>
+
+  <div class="fence-card">
+    <div class="fence-label">▸ Perimeter Sensor Line</div>
+    <div class="fence-svg-wrap">
+      <svg id="fenceSvg" viewBox="0 0 800 110" width="100%" height="110" xmlns="http://www.w3.org/2000/svg">
+        <line class="fence-line" x1="20" y1="55" x2="780" y2="55"></line>
+      </svg>
+    </div>
+  </div>
 
   <div class="card">
-    <div class="select-row">
+    <div class="control-row">
       <div class="field">
         <label for="siteSelect">Monitoring Site</label>
         <select id="siteSelect" onchange="handleSiteChange()">
@@ -141,52 +219,111 @@
           <option value="28.6139,77.2090">Delhi NCR</option>
           <option value="12.9716,77.5946">Bengaluru, Karnataka</option>
           <option value="23.0225,72.5714">Ahmedabad, Gujarat</option>
+          <option value="9.9312,76.2673">Kochi, Kerala</option>
+          <option value="15.2993,74.1240">Goa</option>
           <option value="custom">Custom Location...</option>
         </select>
       </div>
       <div class="field" id="customFields" style="display:none;">
-        <label for="lat">Latitude, Longitude</label>
+        <label for="customCoords">Latitude, Longitude</label>
         <input id="customCoords" placeholder="e.g. 19.076, 72.877">
       </div>
       <button id="fetchBtn" onclick="getRecommendation()">Fetch Live Recommendation</button>
+      <label class="live-toggle">
+        <input type="checkbox" id="liveToggle" onchange="toggleLiveMode()">
+        Live Mode (30s)
+      </label>
     </div>
   </div>
 
   <div class="card">
+    <p class="card-title">Live Weather Readout</p>
     <div class="stats-grid">
-      <div class="stat"><h3>Wind Speed</h3><p id="wind">--</p></div>
-      <div class="stat"><h3>Rainfall</h3><p id="rain">--</p></div>
-      <div class="stat"><h3>Temperature</h3><p id="temp">--</p></div>
-      <div class="stat"><h3>Humidity</h3><p id="humidity">--</p></div>
+      <div class="stat"><div class="k">Wind Speed</div><div class="v mono" id="wind">--</div></div>
+      <div class="stat"><div class="k">Rainfall</div><div class="v mono" id="rain">--</div></div>
+      <div class="stat"><div class="k">Temperature</div><div class="v mono" id="temp">--</div></div>
+      <div class="stat"><div class="k">Humidity</div><div class="v mono" id="humidity">--</div></div>
     </div>
   </div>
 
   <div class="card">
-    <h3 style="margin-top:0;">Recommended Sensor Sensitivity</h3>
-    <div id="sensitivityBox" class="sensitivity High">--</div>
-    <p class="reason" id="reason"></p>
+    <p class="card-title">Recommended Sensor Sensitivity</p>
+    <div class="sens-layout">
+      <div>
+        <div class="sens-tag">Model Output</div>
+        <div class="sens-value High" id="sensValue">--</div>
+        <p class="reason" id="reason">Waiting for first reading…</p>
+      </div>
+      <div class="gauge-wrap">
+        <svg width="120" height="70" viewBox="0 0 120 70">
+          <path d="M10,65 A50,50 0 0,1 110,65" fill="none" stroke="#1e2a44" stroke-width="10" stroke-linecap="round"/>
+          <path id="gaugeArc" d="M10,65 A50,50 0 0,1 110,65" fill="none" stroke="#22d3ee" stroke-width="10" stroke-linecap="round" stroke-dasharray="157" stroke-dashoffset="157"/>
+        </svg>
+        <div class="gauge-num mono" id="confNum">--</div>
+        <div class="gauge-cap">Confidence</div>
+      </div>
+    </div>
   </div>
 
   <div class="card">
-    <h3 style="margin-top:0;">Recent Calibration History</h3>
+    <p class="card-title">Model Reasoning — Feature Importance <span class="model-badge" id="modelBadge">RANDOM FOREST</span></p>
+    <div id="importanceContainer">
+      <div class="imp-row"><div class="imp-name">Loading…</div><div class="imp-track"><div class="imp-fill" style="width:0%"></div></div><div class="imp-val"></div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="card-title">Calibration History Log</p>
     <div class="table-wrap">
       <table>
-        <thead>
-          <tr><th>Time</th><th>Wind</th><th>Rain</th><th>Sensitivity</th><th>Confidence</th></tr>
-        </thead>
+        <thead><tr><th>Time</th><th>Wind</th><th>Rain</th><th>Sensitivity</th><th>Confidence</th></tr></thead>
         <tbody id="historyTable"></tbody>
       </table>
     </div>
   </div>
+
 </div>
 
 <script>
 const API_BASE = "http://127.0.0.1:8000";
+let liveInterval = null;
+
+const NUM_NODES = 7;
+function buildFence() {
+  const svg = document.getElementById("fenceSvg");
+  const startX = 60, endX = 740, y = 55;
+  for (let i = 0; i < NUM_NODES; i++) {
+    const x = startX + (i * (endX - startX) / (NUM_NODES - 1));
+    const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    g.setAttribute("class", "sensor-node");
+    g.setAttribute("data-index", i);
+    g.innerHTML = `
+      <line x1="${x}" y1="${y}" x2="${x}" y2="${y+28}" stroke="#1e2a44" stroke-width="2"/>
+      <circle class="ring" cx="${x}" cy="${y}" r="9" fill="none" stroke="#22c55e" stroke-width="2"/>
+      <circle class="core" cx="${x}" cy="${y}" r="6" fill="#22c55e" stroke="#0a2818" stroke-width="1.5"/>
+    `;
+    svg.appendChild(g);
+  }
+}
+function updateFence(sensitivity) {
+  const colorMap = { High: "#22c55e", Medium: "#f5a524", Low: "#ef4444" };
+  const color = colorMap[sensitivity] || "#22c55e";
+  document.querySelectorAll(".sensor-node").forEach((node, i) => {
+    node.querySelector(".core").setAttribute("fill", color);
+    node.querySelector(".ring").setAttribute("stroke", color);
+    node.classList.remove("active");
+  });
+  const active = [2, 4];
+  active.forEach(i => {
+    const node = document.querySelector(`.sensor-node[data-index="${i}"]`);
+    if (node) node.classList.add("active");
+  });
+}
+buildFence();
 
 function handleSiteChange() {
   const val = document.getElementById("siteSelect").value;
-  document.getElementById("customFields").style.display =
-    val === "custom" ? "block" : "none";
+  document.getElementById("customFields").style.display = val === "custom" ? "block" : "none";
 }
 
 function getSelectedCoords() {
@@ -194,14 +331,32 @@ function getSelectedCoords() {
   if (select.value === "custom") {
     const raw = document.getElementById("customCoords").value;
     const [lat, lon] = raw.split(",").map(s => parseFloat(s.trim()));
-    if (isNaN(lat) || isNaN(lon)) {
-      alert("Enter valid coordinates like: 19.076, 72.877");
-      return null;
-    }
+    if (isNaN(lat) || isNaN(lon)) { alert("Enter valid coordinates like: 19.076, 72.877"); return null; }
     return { lat, lon };
   }
   const [lat, lon] = select.value.split(",").map(Number);
   return { lat, lon };
+}
+
+function toggleLiveMode() {
+  const on = document.getElementById("liveToggle").checked;
+  if (on) {
+    liveInterval = setInterval(getRecommendation, 30000);
+  } else {
+    clearInterval(liveInterval);
+  }
+}
+
+function setOnlineStatus(online) {
+  const dot = document.getElementById("statusDot");
+  const text = document.getElementById("statusText");
+  if (online) {
+    dot.className = "dot live";
+    text.innerText = "SYSTEM ONLINE";
+  } else {
+    dot.className = "dot offline";
+    text.innerText = "BACKEND UNREACHABLE";
+  }
 }
 
 async function getRecommendation() {
@@ -210,28 +365,38 @@ async function getRecommendation() {
 
   const btn = document.getElementById("fetchBtn");
   btn.disabled = true;
-  btn.innerText = "Fetching...";
+  btn.innerText = "Fetching…";
 
   try {
     const res = await fetch(`${API_BASE}/recommend?lat=${coords.lat}&lon=${coords.lon}`);
     const data = await res.json();
+    setOnlineStatus(true);
 
     document.getElementById("wind").innerText = data.weather.wind_speed + " km/h";
     document.getElementById("rain").innerText = data.weather.rainfall + " mm";
     document.getElementById("temp").innerText = data.weather.temperature + " °C";
     document.getElementById("humidity").innerText = data.weather.humidity + " %";
 
-    const box = document.getElementById("sensitivityBox");
-    box.innerText = data.recommendation.sensitivity + " Sensitivity";
-    box.className = "sensitivity " + data.recommendation.sensitivity;
+    const sens = data.recommendation.sensitivity;
+    const conf = data.recommendation.confidence;
 
-    document.getElementById("reason").innerText =
-      "Reason: " + data.recommendation.reason +
-      " | Confidence: " + (data.recommendation.confidence * 100).toFixed(0) + "%";
+    const sv = document.getElementById("sensValue");
+    sv.innerText = sens + " Sensitivity";
+    sv.className = "sens-value " + sens;
 
+    document.getElementById("reason").innerText = "Reason: " + data.recommendation.reason;
+    document.getElementById("confNum").innerText = Math.round(conf * 100) + "%";
+
+    const offset = 157 - (157 * conf);
+    document.getElementById("gaugeArc").setAttribute("stroke-dashoffset", offset);
+    const gaugeColor = sens === "High" ? "#22c55e" : sens === "Medium" ? "#f5a524" : "#ef4444";
+    document.getElementById("gaugeArc").setAttribute("stroke", gaugeColor);
+
+    updateFence(sens);
     loadHistory();
   } catch (err) {
-    alert("Could not reach backend. Make sure the server is running (uvicorn app:app --reload).");
+    setOnlineStatus(false);
+    alert("Could not reach backend. Make sure uvicorn is running (uvicorn app:app --reload).");
   } finally {
     btn.disabled = false;
     btn.innerText = "Fetch Live Recommendation";
@@ -246,20 +411,44 @@ async function loadHistory() {
     tbody.innerHTML = "";
     rows.forEach(r => {
       tbody.innerHTML += `<tr>
-        <td>${new Date(r.timestamp).toLocaleTimeString()}</td>
-        <td>${r.wind_speed} km/h</td>
-        <td>${r.rainfall} mm</td>
+        <td class="mono">${new Date(r.timestamp).toLocaleTimeString()}</td>
+        <td class="mono">${r.wind_speed} km/h</td>
+        <td class="mono">${r.rainfall} mm</td>
         <td><span class="badge ${r.sensitivity}">${r.sensitivity}</span></td>
-        <td>${(r.confidence*100).toFixed(0)}%</td>
+        <td class="mono">${(r.confidence*100).toFixed(0)}%</td>
       </tr>`;
     });
+  } catch (err) { console.error("History fetch failed", err); }
+}
+
+async function loadModelInfo() {
+  try {
+    const res = await fetch(`${API_BASE}/model-info`);
+    const data = await res.json();
+    const container = document.getElementById("importanceContainer");
+    container.innerHTML = "";
+    const maxImp = Math.max(...data.feature_importance.map(f => f.importance));
+    data.feature_importance.forEach(f => {
+      const pct = (f.importance / maxImp) * 100;
+      const row = document.createElement("div");
+      row.className = "imp-row";
+      row.innerHTML = `
+        <div class="imp-name">${f.feature.replace('_',' ')}</div>
+        <div class="imp-track"><div class="imp-fill" style="width:${pct}%"></div></div>
+        <div class="imp-val">${(f.importance*100).toFixed(1)}%</div>
+      `;
+      container.appendChild(row);
+    });
+    document.getElementById("modelBadge").innerText =
+      (data.model_type || "MODEL").replace("Classifier","").toUpperCase();
   } catch (err) {
-    console.error("History fetch failed", err);
+    document.getElementById("importanceContainer").innerHTML =
+      '<p style="color:#7c8aad; font-size:12.5px;">Model info unavailable — check backend.</p>';
   }
 }
 
-// auto-load Mumbai on page open
 getRecommendation();
+loadModelInfo();
 </script>
 
 </body>
