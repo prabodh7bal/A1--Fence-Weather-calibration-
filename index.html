@@ -1,454 +1,1592 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VIGIL — Perimeter Weather Calibration Console</title>
-<style>
-  :root {
-    --bg: #080b14;
-    --panel: #101828;
-    --panel-2: #0c1220;
-    --border: #1e2a44;
-    --text: #e7edf7;
-    --muted: #7c8aad;
-    --cyan: #22d3ee;
-    --cyan-dim: rgba(34, 211, 238, 0.15);
-    --high: #22c55e;
-    --high-dim: rgba(34, 197, 94, 0.14);
-    --medium: #f5a524;
-    --medium-dim: rgba(245, 165, 36, 0.14);
-    --low: #ef4444;
-    --low-dim: rgba(239, 68, 68, 0.14);
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    background: radial-gradient(ellipse at top, #0d1424 0%, var(--bg) 55%);
-    color: var(--text);
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    padding: 24px 20px 60px;
-  }
-  .mono {
-    font-family: 'Consolas', 'SFMono-Regular', 'Roboto Mono', ui-monospace, monospace;
-  }
-  .wrap { max-width: 1120px; margin: 0 auto; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 12px;
-    margin-bottom: 22px;
-  }
-  .brand-eyebrow {
-    font-size: 11px;
-    letter-spacing: 3px;
-    color: var(--cyan);
-    text-transform: uppercase;
-    font-weight: 700;
-    margin: 0 0 4px;
-  }
-  h1 {
-    margin: 0;
-    font-size: clamp(22px, 4vw, 30px);
-    font-weight: 800;
-    letter-spacing: -0.02em;
-  }
-  .subtitle { color: var(--muted); font-size: 13.5px; margin-top: 6px; max-width: 520px; }
-  .status-pill {
-    display: flex; align-items: center; gap: 8px;
-    background: var(--panel); border: 1px solid var(--border);
-    padding: 8px 14px; border-radius: 999px; font-size: 12px;
-    color: var(--muted); white-space: nowrap;
-  }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--high); box-shadow: 0 0 8px var(--high); }
-  .dot.offline { background: #475569; box-shadow: none; }
-  @keyframes pulse-dot { 0%,100%{opacity:1;} 50%{opacity:0.35;} }
-  .dot.live { animation: pulse-dot 1.6s ease-in-out infinite; }
+    <title>VIGIL PIDS — Weather Calibration Console</title>
 
-  .fence-card {
-    background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 26px 24px 18px;
-    margin-bottom: 20px;
-    overflow: hidden;
-    position: relative;
-  }
-  .fence-label {
-    font-size: 10.5px; letter-spacing: 2px; text-transform: uppercase;
-    color: var(--muted); margin-bottom: 14px; font-weight: 700;
-  }
-  .fence-svg-wrap { width: 100%; }
-  .sensor-node circle.core { transition: fill 0.4s ease, stroke 0.4s ease; }
-  .sensor-node circle.ring { transition: stroke 0.4s ease; opacity: 0.55; }
-  .sensor-node.active circle.ring { animation: radar-sweep 2.2s ease-out infinite; }
-  @keyframes radar-sweep {
-    0% { r: 9; opacity: 0.65; }
-    100% { r: 26; opacity: 0; }
-  }
-  .fence-line { stroke: #24304a; stroke-width: 2; }
+    <style>
+        * {
+            box-sizing: border-box;
+        }
 
-  .card {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 20px;
-    margin-bottom: 18px;
-  }
-  .control-row { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
-  .field { flex: 1; min-width: 210px; }
-  label {
-    display: block; font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase;
-    color: var(--muted); margin-bottom: 7px; font-weight: 700;
-  }
-  select, input {
-    width: 100%; padding: 11px 12px; border-radius: 8px;
-    border: 1px solid var(--border); background: var(--panel-2);
-    color: var(--text); font-size: 14px; font-family: inherit;
-  }
-  select:focus, input:focus { outline: 2px solid var(--cyan); outline-offset: 1px; }
-  button {
-    background: var(--cyan); color: #04222b; border: none;
-    padding: 12px 22px; border-radius: 8px; font-weight: 800;
-    font-size: 13.5px; letter-spacing: 0.3px; cursor: pointer;
-    white-space: nowrap; transition: filter 0.15s ease;
-  }
-  button:hover { filter: brightness(1.12); }
-  button:disabled { background: #364155; color: #8998b8; cursor: not-allowed; }
+        body {
+            margin: 0;
+            background: #070b14;
+            color: #e8edf7;
+            font-family: Arial, Helvetica, sans-serif;
+        }
 
-  .live-toggle {
-    display: flex; align-items: center; gap: 9px; cursor: pointer;
-    background: var(--panel-2); border: 1px solid var(--border);
-    padding: 11px 14px; border-radius: 8px; font-size: 12.5px; color: var(--muted);
-    user-select: none;
-  }
-  .live-toggle input { width: auto; margin: 0; accent-color: var(--cyan); }
+        .container {
+            width: 94%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 22px 0 40px;
+        }
 
-  .stats-grid {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-    gap: 12px;
-  }
-  .stat {
-    background: var(--panel-2); border: 1px solid var(--border);
-    border-radius: 10px; padding: 14px; text-align: center;
-  }
-  .stat .k { font-size: 10.5px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); font-weight: 700; }
-  .stat .v { font-size: clamp(18px, 3vw, 23px); font-weight: 800; margin-top: 6px; }
+        /* HEADER */
 
-  .sens-layout { display: grid; grid-template-columns: 1fr auto; gap: 22px; align-items: center; }
-  @media (max-width: 560px) { .sens-layout { grid-template-columns: 1fr; } }
-  .sens-headline { display: flex; align-items: center; gap: 12px; }
-  .sens-tag {
-    font-size: 10.5px; letter-spacing: 1.5px; text-transform: uppercase;
-    color: var(--muted); font-weight: 700; margin-bottom: 8px;
-  }
-  .sens-value { font-size: clamp(26px, 5vw, 38px); font-weight: 900; letter-spacing: -0.01em; }
-  .sens-value.High { color: var(--high); } .sens-value.Medium { color: var(--medium); } .sens-value.Low { color: var(--low); }
-  .reason { color: var(--muted); font-size: 13px; margin-top: 10px; line-height: 1.5; }
-  .gauge-wrap { display:flex; flex-direction:column; align-items:center; gap: 4px; }
-  .gauge-num { font-size: 20px; font-weight: 800; margin-top: -58px; }
-  .gauge-cap { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 25px;
+        }
 
-  .imp-row { display: grid; grid-template-columns: 110px 1fr 42px; align-items: center; gap: 10px; margin-bottom: 11px; font-size: 12.5px; }
-  .imp-row:last-child { margin-bottom: 0; }
-  .imp-name { color: var(--muted); text-transform: capitalize; }
-  .imp-track { height: 8px; background: var(--panel-2); border-radius: 6px; overflow: hidden; border: 1px solid var(--border); }
-  .imp-fill { height: 100%; background: linear-gradient(90deg, var(--cyan), #0891b2); border-radius: 6px; transition: width 0.5s ease; }
-  .imp-val { text-align: right; color: var(--text); font-weight: 700; }
-  .card-title {
-    font-size: 12px; letter-spacing: 1.3px; text-transform: uppercase;
-    color: var(--muted); font-weight: 800; margin: 0 0 16px;
-    display: flex; align-items: center; justify-content: space-between;
-  }
-  .model-badge {
-    font-size: 10px; background: var(--cyan-dim); color: var(--cyan);
-    padding: 3px 9px; border-radius: 5px; letter-spacing: 0.5px; font-weight: 700;
-  }
+        .eyebrow {
+            color: #25d9e8;
+            font-size: 11px;
+            font-weight: bold;
+            letter-spacing: 3px;
+            margin-bottom: 7px;
+        }
 
-  .table-wrap { overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; min-width: 520px; }
-  th, td { padding: 10px 8px; text-align: left; border-bottom: 1px solid var(--border); font-size: 12.5px; }
-  th { color: var(--muted); font-weight: 700; text-transform: uppercase; font-size: 10.5px; letter-spacing: 1px; }
-  .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 800; }
-  .badge.High { background: var(--high-dim); color: var(--high); }
-  .badge.Medium { background: var(--medium-dim); color: var(--medium); }
-  .badge.Low { background: var(--low-dim); color: var(--low); }
+        h1 {
+            margin: 0;
+            font-size: 28px;
+            color: #ffffff;
+        }
 
-  @media (max-width: 600px) {
-    .control-row { flex-direction: column; align-items: stretch; }
-    button { width: 100%; }
-  }
-</style>
+        .subtitle {
+            margin-top: 8px;
+            color: #8ea0be;
+            font-size: 13px;
+        }
+
+        .status {
+            border: 1px solid #18344c;
+            background: #0c1525;
+            border-radius: 20px;
+            padding: 9px 15px;
+            font-size: 11px;
+            color: #9eacc5;
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 7px;
+            height: 7px;
+            background: #20c968;
+            border-radius: 50%;
+            margin-right: 7px;
+        }
+
+        /* CARDS */
+
+        .card {
+            background: #0e1626;
+            border: 1px solid #20304a;
+            border-radius: 11px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+
+        .card-title {
+            color: #7891b7;
+            font-size: 11px;
+            font-weight: bold;
+            letter-spacing: 2px;
+            margin-bottom: 18px;
+        }
+
+        /* SENSOR LINE */
+
+        .sensor-line {
+            height: 90px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .line {
+            width: 75%;
+            height: 2px;
+            background: #273b59;
+            position: absolute;
+        }
+
+        .sensor-points {
+            width: 75%;
+            display: flex;
+            justify-content: space-between;
+            position: relative;
+            z-index: 2;
+        }
+
+        .sensor {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background: #0e1626;
+            border: 2px solid #19d36b;
+            box-shadow: 0 0 0 4px rgba(25, 211, 107, 0.12);
+        }
+
+        /* CONTROLS */
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        select,
+        input {
+            flex: 1;
+            background: #0a1220;
+            border: 1px solid #263b58;
+            color: #ffffff;
+            padding: 13px 14px;
+            border-radius: 7px;
+            outline: none;
+        }
+
+        select:focus,
+        input:focus {
+            border-color: #24d4e5;
+        }
+
+        button {
+            border: none;
+            border-radius: 7px;
+            padding: 13px 20px;
+            background: #20c9df;
+            color: #031017;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #38d9ed;
+        }
+
+        .live-button {
+            background: #0a1220;
+            color: #9eacc5;
+            border: 1px solid #263b58;
+            white-space: nowrap;
+        }
+
+        .live-button.active {
+            border-color: #20c968;
+            color: #20c968;
+        }
+
+        /* CUSTOM COORDINATES */
+
+        .custom-coordinates {
+            display: none;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .custom-coordinates.show {
+            display: flex;
+        }
+
+        /* WEATHER */
+
+        .weather-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+
+        .weather-box {
+            background: #0a1220;
+            border: 1px solid #263b58;
+            border-radius: 8px;
+            text-align: center;
+            padding: 16px 10px;
+        }
+
+        .weather-label {
+            color: #7990b4;
+            font-size: 10px;
+            font-weight: bold;
+            letter-spacing: 1.5px;
+            margin-bottom: 8px;
+        }
+
+        .weather-value {
+            color: #ffffff;
+            font-size: 19px;
+            font-weight: bold;
+        }
+
+        /* EXTRA WEATHER */
+
+        .extra-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .extra-box {
+            background: #0a1220;
+            border: 1px solid #263b58;
+            border-radius: 8px;
+            padding: 13px;
+        }
+
+        .extra-label {
+            color: #7085a7;
+            font-size: 10px;
+            margin-bottom: 5px;
+        }
+
+        .extra-value {
+            color: #dce6f7;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        /* RECOMMENDATION */
+
+        .recommendation {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .model-label {
+            color: #7990b4;
+            font-size: 10px;
+            letter-spacing: 2px;
+            margin-bottom: 7px;
+        }
+
+        .sensitivity {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .sensitivity.high {
+            color: #20d16b;
+        }
+
+        .sensitivity.medium {
+            color: #f4c84d;
+        }
+
+        .sensitivity.low {
+            color: #ff6677;
+        }
+
+        .reason {
+            color: #8294b2;
+            font-size: 12px;
+            max-width: 650px;
+        }
+
+        /* CONFIDENCE */
+
+        .confidence-box {
+            width: 120px;
+            text-align: center;
+        }
+
+        .confidence-circle {
+            width: 85px;
+            height: 85px;
+            margin: auto;
+            border-radius: 50%;
+            border: 7px solid #20c968;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+
+        .confidence-value {
+            font-size: 17px;
+            font-weight: bold;
+            color: white;
+        }
+
+        .confidence-label {
+            font-size: 8px;
+            color: #7085a7;
+            letter-spacing: 1px;
+            margin-top: 2px;
+        }
+
+        /* FEATURE IMPORTANCE */
+
+        .feature {
+            margin-bottom: 13px;
+        }
+
+        .feature-header {
+            display: flex;
+            justify-content: space-between;
+            color: #8ba0c2;
+            font-size: 11px;
+            margin-bottom: 5px;
+        }
+
+        .feature-bar {
+            height: 5px;
+            background: #1b2a41;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .feature-fill {
+            height: 100%;
+            background: #1bcde4;
+            border-radius: 10px;
+        }
+
+        .model-badge {
+            float: right;
+            background: #103a4b;
+            color: #20d9ec;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 9px;
+        }
+
+        /* HISTORY */
+
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+        }
+
+        th {
+            color: #7890b4;
+            text-align: left;
+            padding: 10px;
+            border-bottom: 1px solid #26354d;
+        }
+
+        td {
+            padding: 11px 10px;
+            border-bottom: 1px solid #19263a;
+            color: #b9c6db;
+        }
+
+        .badge {
+            background: #103b2c;
+            color: #25d876;
+            padding: 4px 9px;
+            border-radius: 12px;
+            font-size: 9px;
+            font-weight: bold;
+        }
+
+        /* LOCATION */
+
+        .location-info {
+            margin-top: 10px;
+            color: #687e9f;
+            font-size: 11px;
+        }
+
+        /* LOADING */
+
+        .loading {
+            color: #20d9ec;
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+
+        .error {
+            background: #32151b;
+            border: 1px solid #70313b;
+            color: #ff8995;
+            padding: 12px;
+            border-radius: 7px;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+        /* RESPONSIVE */
+
+        @media (max-width: 800px) {
+
+            .weather-grid,
+            .extra-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .recommendation {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 20px;
+            }
+
+            .confidence-box {
+                margin-left: 0;
+            }
+
+            .header {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+    </style>
 </head>
+
 <body>
 
-<div class="wrap">
+<div class="container">
 
-  <header>
-    <div>
-      <p class="brand-eyebrow">A-1 FENCE · VIGIL PIDS</p>
-      <h1>Perimeter Weather Calibration Console</h1>
-      <p class="subtitle">Live weather-driven sensitivity tuning for perimeter intrusion detection sensors — powered by a trained ML model.</p>
-    </div>
-    <div class="status-pill">
-      <span class="dot live" id="statusDot"></span>
-      <span id="statusText">SYSTEM ONLINE</span>
-    </div>
-  </header>
+    <!-- HEADER -->
 
-  <div class="fence-card">
-    <div class="fence-label">▸ Perimeter Sensor Line</div>
-    <div class="fence-svg-wrap">
-      <svg id="fenceSvg" viewBox="0 0 800 110" width="100%" height="110" xmlns="http://www.w3.org/2000/svg">
-        <line class="fence-line" x1="20" y1="55" x2="780" y2="55"></line>
-      </svg>
-    </div>
-  </div>
+    <div class="header">
 
-  <div class="card">
-    <div class="control-row">
-      <div class="field">
-        <label for="siteSelect">Monitoring Site</label>
-        <select id="siteSelect" onchange="handleSiteChange()">
-          <option value="19.076,72.877">Mumbai, Maharashtra</option>
-          <option value="13.0827,80.2707">Chennai, Tamil Nadu</option>
-          <option value="22.5726,88.3639">Kolkata, West Bengal</option>
-          <option value="28.6139,77.2090">Delhi NCR</option>
-          <option value="12.9716,77.5946">Bengaluru, Karnataka</option>
-          <option value="23.0225,72.5714">Ahmedabad, Gujarat</option>
-          <option value="9.9312,76.2673">Kochi, Kerala</option>
-          <option value="15.2993,74.1240">Goa</option>
-          <option value="custom">Custom Location...</option>
-        </select>
-      </div>
-      <div class="field" id="customFields" style="display:none;">
-        <label for="customCoords">Latitude, Longitude</label>
-        <input id="customCoords" placeholder="e.g. 19.076, 72.877">
-      </div>
-      <button id="fetchBtn" onclick="getRecommendation()">Fetch Live Recommendation</button>
-      <label class="live-toggle">
-        <input type="checkbox" id="liveToggle" onchange="toggleLiveMode()">
-        Live Mode (30s)
-      </label>
-    </div>
-  </div>
+        <div>
+            <div class="eyebrow">A-1 FENCE · VIGIL PIDS</div>
 
-  <div class="card">
-    <p class="card-title">Live Weather Readout</p>
-    <div class="stats-grid">
-      <div class="stat"><div class="k">Wind Speed</div><div class="v mono" id="wind">--</div></div>
-      <div class="stat"><div class="k">Rainfall</div><div class="v mono" id="rain">--</div></div>
-      <div class="stat"><div class="k">Temperature</div><div class="v mono" id="temp">--</div></div>
-      <div class="stat"><div class="k">Humidity</div><div class="v mono" id="humidity">--</div></div>
-    </div>
-  </div>
+            <h1>Perimeter Weather Calibration Console</h1>
 
-  <div class="card">
-    <p class="card-title">Recommended Sensor Sensitivity</p>
-    <div class="sens-layout">
-      <div>
-        <div class="sens-tag">Model Output</div>
-        <div class="sens-value High" id="sensValue">--</div>
-        <p class="reason" id="reason">Waiting for first reading…</p>
-      </div>
-      <div class="gauge-wrap">
-        <svg width="120" height="70" viewBox="0 0 120 70">
-          <path d="M10,65 A50,50 0 0,1 110,65" fill="none" stroke="#1e2a44" stroke-width="10" stroke-linecap="round"/>
-          <path id="gaugeArc" d="M10,65 A50,50 0 0,1 110,65" fill="none" stroke="#22d3ee" stroke-width="10" stroke-linecap="round" stroke-dasharray="157" stroke-dashoffset="157"/>
-        </svg>
-        <div class="gauge-num mono" id="confNum">--</div>
-        <div class="gauge-cap">Confidence</div>
-      </div>
-    </div>
-  </div>
+            <div class="subtitle">
+                Live weather-driven sensitivity tuning for perimeter intrusion detection sensors —
+                powered by a trained ML model.
+            </div>
+        </div>
 
-  <div class="card">
-    <p class="card-title">Model Reasoning — Feature Importance <span class="model-badge" id="modelBadge">RANDOM FOREST</span></p>
-    <div id="importanceContainer">
-      <div class="imp-row"><div class="imp-name">Loading…</div><div class="imp-track"><div class="imp-fill" style="width:0%"></div></div><div class="imp-val"></div></div>
-    </div>
-  </div>
+        <div class="status">
+            <span class="status-dot"></span>
+            SYSTEM ONLINE
+        </div>
 
-  <div class="card">
-    <p class="card-title">Calibration History Log</p>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Time</th><th>Wind</th><th>Rain</th><th>Sensitivity</th><th>Confidence</th></tr></thead>
-        <tbody id="historyTable"></tbody>
-      </table>
     </div>
-  </div>
+
+
+    <!-- ERROR -->
+
+    <div id="errorBox" class="error"></div>
+
+
+    <!-- SENSOR LINE -->
+
+    <div class="card">
+
+        <div class="card-title">
+            ▸ PERIMETER SENSOR LINE
+        </div>
+
+        <div class="sensor-line">
+
+            <div class="line"></div>
+
+            <div class="sensor-points">
+
+                <div class="sensor"></div>
+                <div class="sensor"></div>
+                <div class="sensor"></div>
+                <div class="sensor"></div>
+                <div class="sensor"></div>
+                <div class="sensor"></div>
+                <div class="sensor"></div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- LOCATION -->
+
+    <div class="card">
+
+        <div class="card-title">
+            MONITORING SITE
+        </div>
+
+        <div class="controls">
+
+            <select id="locationSelect">
+
+                <option value="19.076,72.877">
+                    Mumbai, Maharashtra
+                </option>
+
+                <option value="28.6139,77.2090">
+                    Delhi, India
+                </option>
+
+                <option value="12.9716,77.5946">
+                    Bengaluru, Karnataka
+                </option>
+
+                <option value="13.0827,80.2707">
+                    Chennai, Tamil Nadu
+                </option>
+
+                <option value="22.5726,88.3639">
+                    Kolkata, West Bengal
+                </option>
+
+                <option value="17.3850,78.4867">
+                    Hyderabad, Telangana
+                </option>
+
+                <option value="25.5941,85.1376">
+                    Patna, Bihar
+                </option>
+
+                <option value="20.2961,85.8245">
+                    Bhubaneswar, Odisha
+                </option>
+
+                <option value="custom">
+                    Custom Coordinates
+                </option>
+
+            </select>
+
+
+            <button onclick="fetchRecommendation()">
+                FETCH LIVE RECOMMENDATION
+            </button>
+
+
+            <button
+                id="liveButton"
+                class="live-button"
+                onclick="toggleLiveMode()">
+
+                ▪ LIVE MODE (30S)
+
+            </button>
+
+        </div>
+
+
+        <!-- CUSTOM COORDINATES -->
+
+        <div
+            id="customCoordinates"
+            class="custom-coordinates">
+
+            <input
+                id="latitude"
+                type="number"
+                step="any"
+                placeholder="Latitude">
+
+            <input
+                id="longitude"
+                type="number"
+                step="any"
+                placeholder="Longitude">
+
+            <button onclick="fetchCustomCoordinates()">
+                CHECK LOCATION
+            </button>
+
+        </div>
+
+
+        <div id="locationInfo" class="location-info">
+            Coordinates: 19.076, 72.877
+        </div>
+
+    </div>
+
+
+    <!-- LOADING -->
+
+    <div id="loading" class="loading">
+        Fetching live weather data and generating ML recommendation...
+    </div>
+
+
+    <!-- LIVE WEATHER -->
+
+    <div class="card">
+
+        <div class="card-title">
+            LIVE WEATHER READOUT
+        </div>
+
+        <div class="weather-grid">
+
+            <div class="weather-box">
+
+                <div class="weather-label">
+                    WIND SPEED
+                </div>
+
+                <div id="windSpeed" class="weather-value">
+                    -- km/h
+                </div>
+
+            </div>
+
+
+            <div class="weather-box">
+
+                <div class="weather-label">
+                    RAINFALL
+                </div>
+
+                <div id="rainfall" class="weather-value">
+                    -- mm
+                </div>
+
+            </div>
+
+
+            <div class="weather-box">
+
+                <div class="weather-label">
+                    TEMPERATURE
+                </div>
+
+                <div id="temperature" class="weather-value">
+                    -- °C
+                </div>
+
+            </div>
+
+
+            <div class="weather-box">
+
+                <div class="weather-label">
+                    HUMIDITY
+                </div>
+
+                <div id="humidity" class="weather-value">
+                    -- %
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- EXTRA WEATHER INFORMATION -->
+
+        <div class="extra-grid">
+
+            <div class="extra-box">
+
+                <div class="extra-label">
+                    WIND GUSTS
+                </div>
+
+                <div id="windGusts" class="extra-value">
+                    --
+                </div>
+
+            </div>
+
+
+            <div class="extra-box">
+
+                <div class="extra-label">
+                    PRECIPITATION
+                </div>
+
+                <div id="precipitation" class="extra-value">
+                    --
+                </div>
+
+            </div>
+
+
+            <div class="extra-box">
+
+                <div class="extra-label">
+                    PRECIPITATION PROBABILITY
+                </div>
+
+                <div id="precipProbability" class="extra-value">
+                    --
+                </div>
+
+            </div>
+
+
+            <div class="extra-box">
+
+                <div class="extra-label">
+                    WEATHER CODE
+                </div>
+
+                <div id="weatherCode" class="extra-value">
+                    --
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- RECOMMENDATION -->
+
+    <div class="card">
+
+        <div class="card-title">
+            RECOMMENDED SENSOR SENSITIVITY
+        </div>
+
+        <div class="recommendation">
+
+            <div>
+
+                <div class="model-label">
+                    MODEL OUTPUT
+                </div>
+
+                <div
+                    id="sensitivity"
+                    class="sensitivity high">
+
+                    --
+
+                </div>
+
+                <div
+                    id="reason"
+                    class="reason">
+
+                    Waiting for weather data...
+
+                </div>
+
+            </div>
+
+
+            <div class="confidence-box">
+
+                <div class="confidence-circle">
+
+                    <div
+                        id="confidence"
+                        class="confidence-value">
+
+                        --%
+
+                    </div>
+
+                    <div class="confidence-label">
+                        CONFIDENCE
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- FEATURE IMPORTANCE -->
+
+    <div class="card">
+
+        <div class="card-title">
+
+            MODEL REASONING — FEATURE IMPORTANCE
+
+            <span class="model-badge">
+                RANDOM FOREST
+            </span>
+
+        </div>
+
+        <div id="features">
+
+            <div class="feature">
+
+                <div class="feature-header">
+                    <span>Loading model information...</span>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- HISTORY -->
+
+    <div class="card">
+
+        <div class="card-title">
+            CALIBRATION HISTORY LOG
+        </div>
+
+        <div class="table-wrapper">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+
+                        <th>TIME</th>
+                        <th>WIND</th>
+                        <th>RAIN</th>
+                        <th>SENSITIVITY</th>
+                        <th>CONFIDENCE</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody id="historyBody">
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
 
 </div>
 
+
 <script>
-const API_BASE = "https://a1-fence-weather-calibration.onrender.com";
-let liveInterval = null;
 
-const NUM_NODES = 7;
-function buildFence() {
-  const svg = document.getElementById("fenceSvg");
-  const startX = 60, endX = 740, y = 55;
-  for (let i = 0; i < NUM_NODES; i++) {
-    const x = startX + (i * (endX - startX) / (NUM_NODES - 1));
-    const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    g.setAttribute("class", "sensor-node");
-    g.setAttribute("data-index", i);
-    g.innerHTML = `
-      <line x1="${x}" y1="${y}" x2="${x}" y2="${y+28}" stroke="#1e2a44" stroke-width="2"/>
-      <circle class="ring" cx="${x}" cy="${y}" r="9" fill="none" stroke="#22c55e" stroke-width="2"/>
-      <circle class="core" cx="${x}" cy="${y}" r="6" fill="#22c55e" stroke="#0a2818" stroke-width="1.5"/>
-    `;
-    svg.appendChild(g);
-  }
-}
-function updateFence(sensitivity) {
-  const colorMap = { High: "#22c55e", Medium: "#f5a524", Low: "#ef4444" };
-  const color = colorMap[sensitivity] || "#22c55e";
-  document.querySelectorAll(".sensor-node").forEach((node, i) => {
-    node.querySelector(".core").setAttribute("fill", color);
-    node.querySelector(".ring").setAttribute("stroke", color);
-    node.classList.remove("active");
-  });
-  const active = [2, 4];
-  active.forEach(i => {
-    const node = document.querySelector(`.sensor-node[data-index="${i}"]`);
-    if (node) node.classList.add("active");
-  });
-}
-buildFence();
+    /*
+    ============================================================
+    API CONFIGURATION
+    ============================================================
+    */
 
-function handleSiteChange() {
-  const val = document.getElementById("siteSelect").value;
-  document.getElementById("customFields").style.display = val === "custom" ? "block" : "none";
-}
+    const API_BASE = "http://127.0.0.1:8000";
 
-function getSelectedCoords() {
-  const select = document.getElementById("siteSelect");
-  if (select.value === "custom") {
-    const raw = document.getElementById("customCoords").value;
-    const [lat, lon] = raw.split(",").map(s => parseFloat(s.trim()));
-    if (isNaN(lat) || isNaN(lon)) { alert("Enter valid coordinates like: 19.076, 72.877"); return null; }
-    return { lat, lon };
-  }
-  const [lat, lon] = select.value.split(",").map(Number);
-  return { lat, lon };
-}
 
-function toggleLiveMode() {
-  const on = document.getElementById("liveToggle").checked;
-  if (on) {
-    liveInterval = setInterval(getRecommendation, 30000);
-  } else {
-    clearInterval(liveInterval);
-  }
-}
+    /*
+    ============================================================
+    DOM ELEMENTS
+    ============================================================
+    */
 
-function setOnlineStatus(online) {
-  const dot = document.getElementById("statusDot");
-  const text = document.getElementById("statusText");
-  if (online) {
-    dot.className = "dot live";
-    text.innerText = "SYSTEM ONLINE";
-  } else {
-    dot.className = "dot offline";
-    text.innerText = "BACKEND UNREACHABLE";
-  }
-}
+    const locationSelect =
+        document.getElementById("locationSelect");
 
-async function getRecommendation() {
-  const coords = getSelectedCoords();
-  if (!coords) return;
+    const customCoordinates =
+        document.getElementById("customCoordinates");
 
-  const btn = document.getElementById("fetchBtn");
-  btn.disabled = true;
-  btn.innerText = "Fetching…";
+    const latitudeInput =
+        document.getElementById("latitude");
 
-  try {
-    const res = await fetch(`${API_BASE}/recommend?lat=${coords.lat}&lon=${coords.lon}`);
-    const data = await res.json();
-    setOnlineStatus(true);
+    const longitudeInput =
+        document.getElementById("longitude");
 
-    document.getElementById("wind").innerText = data.weather.wind_speed + " km/h";
-    document.getElementById("rain").innerText = data.weather.rainfall + " mm";
-    document.getElementById("temp").innerText = data.weather.temperature + " °C";
-    document.getElementById("humidity").innerText = data.weather.humidity + " %";
 
-    const sens = data.recommendation.sensitivity;
-    const conf = data.recommendation.confidence;
+    /*
+    ============================================================
+    LOCATION SELECT
+    ============================================================
+    */
 
-    const sv = document.getElementById("sensValue");
-    sv.innerText = sens + " Sensitivity";
-    sv.className = "sens-value " + sens;
+    locationSelect.addEventListener(
+        "change",
+        function () {
 
-    document.getElementById("reason").innerText = "Reason: " + data.recommendation.reason;
-    document.getElementById("confNum").innerText = Math.round(conf * 100) + "%";
+            if (this.value === "custom") {
 
-    const offset = 157 - (157 * conf);
-    document.getElementById("gaugeArc").setAttribute("stroke-dashoffset", offset);
-    const gaugeColor = sens === "High" ? "#22c55e" : sens === "Medium" ? "#f5a524" : "#ef4444";
-    document.getElementById("gaugeArc").setAttribute("stroke", gaugeColor);
+                customCoordinates.classList.add("show");
 
-    updateFence(sens);
-    loadHistory();
-  } catch (err) {
-    setOnlineStatus(false);
-    alert("Could not reach backend. Make sure uvicorn is running (uvicorn app:app --reload).");
-  } finally {
-    btn.disabled = false;
-    btn.innerText = "Fetch Live Recommendation";
-  }
-}
+                document.getElementById("locationInfo")
+                    .textContent =
+                    "Enter latitude and longitude.";
 
-async function loadHistory() {
-  try {
-    const res = await fetch(`${API_BASE}/history?limit=10`);
-    const rows = await res.json();
-    const tbody = document.getElementById("historyTable");
-    tbody.innerHTML = "";
-    rows.forEach(r => {
-      tbody.innerHTML += `<tr>
-        <td class="mono">${new Date(r.timestamp).toLocaleTimeString()}</td>
-        <td class="mono">${r.wind_speed} km/h</td>
-        <td class="mono">${r.rainfall} mm</td>
-        <td><span class="badge ${r.sensitivity}">${r.sensitivity}</span></td>
-        <td class="mono">${(r.confidence*100).toFixed(0)}%</td>
-      </tr>`;
-    });
-  } catch (err) { console.error("History fetch failed", err); }
-}
+                return;
+            }
 
-async function loadModelInfo() {
-  try {
-    const res = await fetch(`${API_BASE}/model-info`);
-    const data = await res.json();
-    const container = document.getElementById("importanceContainer");
-    container.innerHTML = "";
-    const maxImp = Math.max(...data.feature_importance.map(f => f.importance));
-    data.feature_importance.forEach(f => {
-      const pct = (f.importance / maxImp) * 100;
-      const row = document.createElement("div");
-      row.className = "imp-row";
-      row.innerHTML = `
-        <div class="imp-name">${f.feature.replace('_',' ')}</div>
-        <div class="imp-track"><div class="imp-fill" style="width:${pct}%"></div></div>
-        <div class="imp-val">${(f.importance*100).toFixed(1)}%</div>
-      `;
-      container.appendChild(row);
-    });
-    document.getElementById("modelBadge").innerText =
-      (data.model_type || "MODEL").replace("Classifier","").toUpperCase();
-  } catch (err) {
-    document.getElementById("importanceContainer").innerHTML =
-      '<p style="color:#7c8aad; font-size:12.5px;">Model info unavailable — check backend.</p>';
-  }
-}
+            customCoordinates.classList.remove("show");
 
-getRecommendation();
-loadModelInfo();
+            const [lat, lon] =
+                this.value.split(",");
+
+            document.getElementById("locationInfo")
+                .textContent =
+                `Coordinates: ${lat}, ${lon}`;
+
+        }
+    );
+
+
+    /*
+    ============================================================
+    FETCH RECOMMENDATION
+    ============================================================
+    */
+
+    async function fetchRecommendation() {
+
+        let lat;
+        let lon;
+
+        if (locationSelect.value === "custom") {
+
+            lat =
+                parseFloat(latitudeInput.value);
+
+            lon =
+                parseFloat(longitudeInput.value);
+
+            if (
+                Number.isNaN(lat) ||
+                Number.isNaN(lon)
+            ) {
+
+                showError(
+                    "Please enter valid latitude and longitude."
+                );
+
+                return;
+            }
+
+        } else {
+
+            [lat, lon] =
+                locationSelect.value
+                    .split(",")
+                    .map(Number);
+
+        }
+
+
+        await getWeather(lat, lon);
+
+    }
+
+
+    /*
+    ============================================================
+    CUSTOM LOCATION
+    ============================================================
+    */
+
+    function fetchCustomCoordinates() {
+
+        const lat =
+            parseFloat(latitudeInput.value);
+
+        const lon =
+            parseFloat(longitudeInput.value);
+
+        if (
+            Number.isNaN(lat) ||
+            Number.isNaN(lon)
+        ) {
+
+            showError(
+                "Please enter valid coordinates."
+            );
+
+            return;
+        }
+
+        getWeather(lat, lon);
+
+    }
+
+
+    /*
+    ============================================================
+    GET WEATHER FROM FASTAPI
+    ============================================================
+    */
+
+    async function getWeather(lat, lon) {
+
+        hideError();
+
+        showLoading(true);
+
+
+        try {
+
+            const url =
+                `${API_BASE}/recommend?lat=${lat}&lon=${lon}`;
+
+
+            console.log(
+                "Requesting:",
+                url
+            );
+
+
+            const response =
+                await fetch(url);
+
+
+            if (!response.ok) {
+
+                throw new Error(
+                    `Server returned HTTP ${response.status}`
+                );
+
+            }
+
+
+            const data =
+                await response.json();
+
+
+            console.log(
+                "API RESPONSE:",
+                data
+            );
+
+
+            updateDashboard(data);
+
+
+            loadHistory();
+
+
+        } catch (error) {
+
+            console.error(error);
+
+            showError(
+                "Unable to fetch recommendation. " +
+                "Make sure FastAPI is running on port 8000."
+            );
+
+        } finally {
+
+            showLoading(false);
+
+        }
+
+    }
+
+
+    /*
+    ============================================================
+    UPDATE DASHBOARD
+    ============================================================
+    */
+
+    function updateDashboard(data) {
+
+        const weather =
+            data.weather;
+
+        const recommendation =
+            data.recommendation;
+
+
+        /*
+        --------------------------------------------------------
+        LOCATION
+        --------------------------------------------------------
+        */
+
+        document.getElementById("locationInfo")
+            .textContent =
+            `Coordinates: ${data.location.lat}, ${data.location.lon}`;
+
+
+        /*
+        --------------------------------------------------------
+        WEATHER
+        --------------------------------------------------------
+        */
+
+        document.getElementById("windSpeed")
+            .textContent =
+            `${Number(weather.wind_speed).toFixed(1)} km/h`;
+
+
+        /*
+        IMPORTANT:
+        Do NOT use Math.round() here.
+
+        0.1 mm must remain 0.1 mm,
+        not become 0 mm.
+        */
+
+        document.getElementById("rainfall")
+            .textContent =
+            `${Number(weather.rainfall).toFixed(1)} mm`;
+
+
+        document.getElementById("temperature")
+            .textContent =
+            `${Number(weather.temperature).toFixed(1)} °C`;
+
+
+        document.getElementById("humidity")
+            .textContent =
+            `${Number(weather.humidity).toFixed(0)} %`;
+
+
+        /*
+        --------------------------------------------------------
+        EXTRA WEATHER
+        --------------------------------------------------------
+        */
+
+        document.getElementById("windGusts")
+            .textContent =
+            `${Number(weather.wind_gusts).toFixed(1)} km/h`;
+
+
+        document.getElementById("precipitation")
+            .textContent =
+            `${Number(weather.precipitation).toFixed(1)} mm`;
+
+
+        document.getElementById("precipProbability")
+            .textContent =
+            `${Number(weather.precipitation_probability).toFixed(0)} %`;
+
+
+        document.getElementById("weatherCode")
+            .textContent =
+            weather.weather_code;
+
+
+        /*
+        --------------------------------------------------------
+        SENSITIVITY
+        --------------------------------------------------------
+        */
+
+        const sensitivityElement =
+            document.getElementById("sensitivity");
+
+
+        sensitivityElement.textContent =
+            `${recommendation.sensitivity} Sensitivity`;
+
+
+        sensitivityElement.className =
+            "sensitivity " +
+            recommendation.sensitivity.toLowerCase();
+
+
+        /*
+        --------------------------------------------------------
+        CONFIDENCE
+        --------------------------------------------------------
+        */
+
+        const confidence =
+            Number(
+                recommendation.confidence
+            ) * 100;
+
+
+        document.getElementById("confidence")
+            .textContent =
+            `${confidence.toFixed(0)}%`;
+
+
+        /*
+        --------------------------------------------------------
+        REASON
+        --------------------------------------------------------
+        */
+
+        document.getElementById("reason")
+            .textContent =
+            recommendation.reason;
+
+
+        /*
+        --------------------------------------------------------
+        CONSOLE DEBUG
+        --------------------------------------------------------
+        */
+
+        console.log(
+            "Weather:",
+            weather
+        );
+
+        console.log(
+            "Recommendation:",
+            recommendation
+        );
+
+    }
+
+
+    /*
+    ============================================================
+    MODEL INFO
+    ============================================================
+    */
+
+    async function loadModelInfo() {
+
+        try {
+
+            const response =
+                await fetch(
+                    `${API_BASE}/model-info`
+                );
+
+
+            if (!response.ok) {
+                return;
+            }
+
+
+            const data =
+                await response.json();
+
+
+            const featuresContainer =
+                document.getElementById("features");
+
+
+            featuresContainer.innerHTML = "";
+
+
+            if (!data.feature_importance) {
+                return;
+            }
+
+
+            data.feature_importance
+                .forEach(
+                    item => {
+
+                        const percentage =
+                            (
+                                Number(item.importance) *
+                                100
+                            );
+
+
+                        const feature =
+                            document.createElement("div");
+
+                        feature.className =
+                            "feature";
+
+
+                        feature.innerHTML = `
+
+                            <div class="feature-header">
+
+                                <span>
+                                    ${formatFeatureName(item.feature)}
+                                </span>
+
+                                <strong>
+                                    ${percentage.toFixed(1)}%
+                                </strong>
+
+                            </div>
+
+                            <div class="feature-bar">
+
+                                <div
+                                    class="feature-fill"
+                                    style="width:${percentage}%">
+                                </div>
+
+                            </div>
+
+                        `;
+
+
+                        featuresContainer.appendChild(
+                            feature
+                        );
+
+                    }
+                );
+
+        } catch (error) {
+
+            console.error(
+                "Model info error:",
+                error
+            );
+
+        }
+
+    }
+
+
+    /*
+    ============================================================
+    FORMAT FEATURE NAMES
+    ============================================================
+    */
+
+    function formatFeatureName(name) {
+
+        const names = {
+
+            "wind_speed":
+                "Wind Speed",
+
+            "wind_gusts":
+                "Wind Gusts",
+
+            "rainfall":
+                "Rainfall",
+
+            "humidity":
+                "Humidity",
+
+            "temperature":
+                "Temperature",
+
+            "storm_flag":
+                "Storm Flag",
+
+            "precipitation_probability":
+                "Precipitation Probability"
+
+        };
+
+
+        return names[name] || name;
+
+    }
+
+
+    /*
+    ============================================================
+    HISTORY
+    ============================================================
+    */
+
+    async function loadHistory() {
+
+        try {
+
+            const response =
+                await fetch(
+                    `${API_BASE}/history?limit=10`
+                );
+
+
+            if (!response.ok) {
+                return;
+            }
+
+
+            const data =
+                await response.json();
+
+
+            const tbody =
+                document.getElementById(
+                    "historyBody"
+                );
+
+
+            tbody.innerHTML = "";
+
+
+            data.forEach(
+                item => {
+
+                    const row =
+                        document.createElement("tr");
+
+
+                    const time =
+                        new Date(
+                            item.timestamp
+                        );
+
+
+                    row.innerHTML = `
+
+                        <td>
+                            ${time.toLocaleTimeString()}
+                        </td>
+
+                        <td>
+                            ${Number(item.wind_speed).toFixed(1)} km/h
+                        </td>
+
+                        <td>
+                            ${Number(item.rainfall).toFixed(1)} mm
+                        </td>
+
+                        <td>
+
+                            <span class="badge">
+                                ${item.sensitivity}
+                            </span>
+
+                        </td>
+
+                        <td>
+                            ${(Number(item.confidence) * 100).toFixed(0)}%
+                        </td>
+
+                    `;
+
+
+                    tbody.appendChild(row);
+
+                }
+            );
+
+        } catch (error) {
+
+            console.error(
+                "History error:",
+                error
+            );
+
+        }
+
+    }
+
+
+    /*
+    ============================================================
+    LIVE MODE
+    ============================================================
+    */
+
+    let liveMode = false;
+
+    let liveInterval = null;
+
+
+    function toggleLiveMode() {
+
+        liveMode =
+            !liveMode;
+
+
+        const button =
+            document.getElementById(
+                "liveButton"
+            );
+
+
+        if (liveMode) {
+
+            button.classList.add("active");
+
+            button.textContent =
+                "● LIVE MODE ON";
+
+
+            fetchRecommendation();
+
+
+            liveInterval =
+                setInterval(
+                    fetchRecommendation,
+                    30000
+                );
+
+        } else {
+
+            button.classList.remove("active");
+
+            button.textContent =
+                "▪ LIVE MODE (30S)";
+
+
+            clearInterval(
+                liveInterval
+            );
+
+        }
+
+    }
+
+
+    /*
+    ============================================================
+    LOADING
+    ============================================================
+    */
+
+    function showLoading(show) {
+
+        document.getElementById(
+            "loading"
+        ).style.display =
+            show ? "block" : "none";
+
+    }
+
+
+    /*
+    ============================================================
+    ERROR
+    ============================================================
+    */
+
+    function showError(message) {
+
+        const box =
+            document.getElementById(
+                "errorBox"
+            );
+
+
+        box.textContent =
+            message;
+
+
+        box.style.display =
+            "block";
+
+    }
+
+
+    function hideError() {
+
+        document.getElementById(
+            "errorBox"
+        ).style.display =
+            "none";
+
+    }
+
+
+    /*
+    ============================================================
+    INITIAL LOAD
+    ============================================================
+    */
+
+    window.addEventListener(
+        "load",
+        function () {
+
+            loadModelInfo();
+
+            loadHistory();
+
+            fetchRecommendation();
+
+        }
+    );
+
 </script>
 
 </body>
