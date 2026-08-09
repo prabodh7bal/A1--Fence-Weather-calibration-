@@ -872,7 +872,7 @@
     ============================================================
     */
 
-    const API_BASE = "";
+    const API_BASE = "https://a1-fence-weather-calibration-n8ou.onrender.com";
 
 
     /*
@@ -1064,8 +1064,7 @@
             console.error(error);
 
             showError(
-                "Unable to fetch recommendation. " +
-                "Make sure FastAPI is running on port 8000."
+                "Unable to fetch recommendation. "
             );
 
         } finally {
