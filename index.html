@@ -1017,61 +1017,118 @@
 
         showLoading(true);
 
+        /*
+        Render's free tier spins the backend down after
+        inactivity — the first request can take 30-50s to
+        wake it up, and often fails outright while it's
+        still booting. Retry a few times with a delay
+        instead of giving up on the very first attempt.
+        */
 
-        try {
+        const MAX_ATTEMPTS = 4;
 
-            const url =
-                `${API_BASE}/recommend?lat=${lat}&lon=${lon}`;
-
-
-            console.log(
-                "Requesting:",
-                url
-            );
-
-
-            const response =
-                await fetch(url);
+        const RETRY_DELAY_MS = 8000;
 
 
-            if (!response.ok) {
+        for (
+            let attempt = 1;
+            attempt <= MAX_ATTEMPTS;
+            attempt++
+        ) {
 
-                throw new Error(
-                    `Server returned HTTP ${response.status}`
+            try {
+
+                const url =
+                    `${API_BASE}/recommend?lat=${lat}&lon=${lon}`;
+
+
+                console.log(
+                    "Requesting:",
+                    url,
+                    "attempt",
+                    attempt
                 );
+
+
+                const response =
+                    await fetch(url);
+
+
+                if (!response.ok) {
+
+                    let detail = "";
+
+                    try {
+                        const body = await response.json();
+                        detail = body.detail || "";
+                    } catch (_) {
+                        // response wasn't JSON, ignore
+                    }
+
+                    throw new Error(
+                        `HTTP ${response.status}` +
+                        (detail ? ` — ${detail}` : "")
+                    );
+
+                }
+
+
+                const data =
+                    await response.json();
+
+
+                console.log(
+                    "API RESPONSE:",
+                    data
+                );
+
+
+                updateDashboard(data);
+
+                loadHistory();
+
+                hideError();
+
+                showLoading(false);
+
+                return;
+
+
+            } catch (error) {
+
+                console.error(
+                    `Attempt ${attempt} failed:`,
+                    error
+                );
+
+
+                if (attempt < MAX_ATTEMPTS) {
+
+                    showError(
+                        "Server is waking up (Render free tier " +
+                        "can take up to a minute on first load). " +
+                        `Retrying ${attempt}/${MAX_ATTEMPTS - 1}...`
+                    );
+
+                    await new Promise(
+                        resolve =>
+                            setTimeout(resolve, RETRY_DELAY_MS)
+                    );
+
+                } else {
+
+                    showError(
+                        `Unable to fetch recommendation: ${error.message}`
+                    );
+
+                }
 
             }
 
-
-            const data =
-                await response.json();
-
-
-            console.log(
-                "API RESPONSE:",
-                data
-            );
-
-
-            updateDashboard(data);
-
-
-            loadHistory();
-
-
-        } catch (error) {
-
-            console.error(error);
-
-            showError(
-                "Unable to fetch recommendation. "
-            );
-
-        } finally {
-
-            showLoading(false);
-
         }
+
+
+        showLoading(false);
 
     }
 

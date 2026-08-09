@@ -16,7 +16,7 @@ import pandas as pd
 import requests
 from fastapi.responses import FileResponse
 
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 
@@ -52,17 +52,6 @@ BASE_DIR = Path(__file__).resolve().parent
 
 DB_PATH = BASE_DIR / "calibration_log.db"
 MODEL_PATH = BASE_DIR / "model.joblib"
-try:
-    ML_MODEL = joblib.load(MODEL_PATH)
-
-    print("✓ Random Forest model loaded")
-
-except FileNotFoundError:
-
-    ML_MODEL = None
-
-    print("⚠ model.joblib not found.")
-    print("Run: python train_model.py")
 
 # ============================================================
 # LOAD MODEL
@@ -76,15 +65,16 @@ try:
 
     print("✓ Random Forest model loaded")
 
-except FileNotFoundError:
+except Exception as e:
+
+    # Catches FileNotFoundError AND version-mismatch / corrupt-pickle
+    # errors from joblib/scikit-learn, so a bad model file can never
+    # crash the whole app at import time — it just disables /recommend.
 
     ML_MODEL = None
 
-    print("⚠ model.joblib not found.")
-
-    print(
-        "Run: python train_model.py"
-    )
+    print(f"⚠ Failed to load model.joblib: {type(e).__name__}: {e}")
+    print("Run: python train_model.py")
 
 
 # ============================================================
@@ -858,7 +848,24 @@ def log_recommendation(
 
 @app.get("/")
 def root():
-    return FileResponse("index.html")
+    return FileResponse(BASE_DIR / "index.html")
+
+
+# ============================================================
+# HEALTH CHECK
+# ============================================================
+# Hit this directly in a browser to instantly see whether the
+# backend is awake and whether the model loaded — no weather
+# API call involved, so it isolates backend-vs-weather issues.
+# Also a good target for an uptime pinger (e.g. UptimeRobot /
+# cron-job.org) to reduce Render free-tier cold starts.
+
+@app.get("/health")
+def health():
+    return {
+        "status": "ok",
+        "model_loaded": ML_MODEL is not None
+    }
 
 
 # ============================================================
@@ -882,34 +889,71 @@ def recommend(
 
 ):
 
-    weather = fetch_weather(
-        lat,
-        lon
-    )
+    # ========================================================
+    # WEATHER FETCH — Open-Meteo can be slow/unreachable, and
+    # this should never crash the process, only this request.
+    # ========================================================
 
+    try:
 
-    sensitivity, confidence, reason = (
-        recommend_sensitivity(
-            weather
+        weather = fetch_weather(
+            lat,
+            lon
         )
-    )
+
+    except Exception as e:
+
+        raise HTTPException(
+            status_code=502,
+            detail=f"Weather fetch failed: {e}"
+        )
 
 
-    log_recommendation(
+    # ========================================================
+    # MODEL PREDICTION — surface a clear 503 (not a bare 500)
+    # if the model failed to load, so the frontend/dashboard
+    # can show something more useful than a generic error.
+    # ========================================================
 
-        lat,
+    try:
 
-        lon,
+        sensitivity, confidence, reason = (
+            recommend_sensitivity(
+                weather
+            )
+        )
 
-        weather,
+    except Exception as e:
 
-        sensitivity,
+        raise HTTPException(
+            status_code=503,
+            detail=f"Model prediction failed: {e}"
+        )
 
-        confidence,
 
-        reason
+    try:
 
-    )
+        log_recommendation(
+
+            lat,
+
+            lon,
+
+            weather,
+
+            sensitivity,
+
+            confidence,
+
+            reason
+
+        )
+
+    except Exception as e:
+
+        # Logging to SQLite should never take the whole
+        # recommendation down — just report it and continue.
+        print(f"⚠ Failed to log recommendation: {e}")
 
 
     return {
